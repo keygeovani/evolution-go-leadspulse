@@ -403,6 +403,20 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		}
 	}
 
+	// LeadsPulse hotfix 2026-11-04: whatsmeow keeps its handshake version in a
+	// global store, not merely in DeviceProps.Version. Without SetWAVersion
+	// the handshake is sent as stale 2.3000.1042386815 and WhatsApp returns 405.
+	// The revision below is a minimum fallback verified on web.whatsapp.com;
+	// if version discovery yields a newer revision, preserve that revision.
+	const whatsappRevisionFloor = 1053132912
+	if version.Major != 2 || version.Minor != 3000 || version.Patch < whatsappRevisionFloor {
+		version.Major = 2
+		version.Minor = 3000
+		version.Patch = whatsappRevisionFloor
+	}
+	store.SetWAVersion(store.WAVersionContainer{uint32(version.Major), uint32(version.Minor), uint32(version.Patch)})
+	w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] WhatsApp client handshake version set to %d.%d.%d", cd.Instance.Id, version.Major, version.Minor, version.Patch)
+
 	// 🔒 FIX: Sempre criar logger, mesmo que WaDebug esteja vazio
 	// Usar "INFO" como nível mínimo para garantir que logs importantes apareçam
 	minLevel := w.config.WaDebug
